@@ -187,13 +187,20 @@ public:
     //================================================
     // 11) Add entire path
     //================================================
-    void AddPath(const wxGraphicsPath& otherPath)
+    void AddPath(const fxGraphicsPath& other)
     {
-        // We can add the raw path to our path if we have m_gc
-        if (m_gc) {
-            m_path.AddPath(otherPath);
+        // If both paths share the same GC (or we have one GC and the other is tracking-only),
+        // we can safely merge the native wxGraphicsPath data:
+        if (m_gc && (other.m_gc == m_gc || other.m_gc == nullptr))
+        {
+            m_path.AddPath(other.m_path);
         }
-        // We have no easy way to track the geometry from otherPath => user must do that
+        // else if you'd like, handle the mismatch case differently (log a warning, etc.)
+
+        // Always merge geometry data:
+        m_segments.insert(m_segments.end(), 
+                          other.m_segments.begin(),
+                          other.m_segments.end());
     }
 
     //================================================
@@ -336,5 +343,11 @@ private:
         return wxRect2DDouble(minx, miny, maxx - minx, maxy - miny);
     }
 };
+
+// Drawing helper functions
+std::vector<wxPoint2DDouble> ApproxQuadBezier(double x0, double y0, double cx, double cy, double x1, double y1, int steps = 12);
+std::vector<wxPoint2DDouble> ApproxCubicBezier(double x0, double y0, double cx1, double cy1, double cx2, double cy2, double x1, double y1, int steps = 12);
+std::vector<wxPoint2DDouble> ApproxArc(double cx, double cy, double r, double startAngle, double endAngle, bool clockwise, int steps = 12);
+
 
 #endif // FXGRAPHICSPATH_HPP

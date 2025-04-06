@@ -1,11 +1,15 @@
 # depslib dependency file v1.0
-1743874483 source:/Users/federico/code/wxSVGGraphicsContext/src/fxDrawingContext.cpp
+1743941744 source:/Users/federico/code/wxSVGGraphicsContext/src/fxDrawingContext.cpp
 	"fxDrawingContext.hpp"
 	<wx/graphics.h>
 	<wx/dcgraph.h>
 	<wx/log.h>
+	<wx/dcmemory.h>
+	<wx/dcprint.h>
+	<wx/dcclient.h>
+	<wx/dc.h>
 
-1743874923 /Users/federico/code/wxSVGGraphicsContext/src/fxDrawingContext.hpp
+1743941722 /Users/federico/code/wxSVGGraphicsContext/src/fxDrawingContext.hpp
 	<variant>
 	<memory>
 	<wx/dc.h>
@@ -773,7 +777,7 @@
 1743871070 source:/Users/federico/code/wxSVGGraphicsContext/src/theApp.cpp
 	"theApp.hpp"
 
-1743874665 /Users/federico/code/wxSVGGraphicsContext/src/theApp.hpp
+1743941469 /Users/federico/code/wxSVGGraphicsContext/src/theApp.hpp
 	<wx/wx.h>
 	<wx/filedlg.h>
 	<wx/dcmemory.h>
@@ -1756,10 +1760,13 @@
 
 1725722400 /opt/homebrew/include/wx-3.2/wx/osx/mdi.h
 
-1743872463 source:/Users/federico/code/wxSVGGraphicsContext/src/fxGraphicsPath.cpp
+1743941450 source:/Users/federico/code/wxSVGGraphicsContext/src/fxGraphicsPath.cpp
 	"fxGraphicsPath.hpp"
+	<cmath>
+	<vector>
+	<wx/gdicmn.h>
 
-1743873641 /Users/federico/code/wxSVGGraphicsContext/src/fxGraphicsPath.hpp
+1743941726 /Users/federico/code/wxSVGGraphicsContext/src/fxGraphicsPath.hpp
 	<wx/graphics.h>
 	<vector>
 	<cmath>

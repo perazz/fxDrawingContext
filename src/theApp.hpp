@@ -12,11 +12,6 @@
 #include "fxDrawingContext.hpp"
 
 // Provide a pattern that lists your export file types
-static const wxString EXPORT_FILE_PATTERN =
-    "JPEG files (*.jpg;*.jpeg)|*.jpg;*.jpeg|"
-    "PNG files (*.png)|*.png|"
-    "SVG files (*.svg)|*.svg|"
-    "PDF files (*.pdf)|*.pdf|";
 
 class MyFrame : public wxFrame
 {
@@ -43,7 +38,7 @@ public:
         // 2) Create a new path. If we actually have a wxGraphicsContext,
         //    the returned fxGraphicsPath will store a real wxGraphicsPath internally.
         //    Otherwise, it will be tracking-only (m_gc == nullptr).
-        fxGraphicsPath fxPath = ctx.NewPath();
+        fxGraphicsPath fxPath = ctx.CreatePath();
 
         // 3) Demonstrate a simple triangular path
         fxPath.MoveToPoint(200, 100);

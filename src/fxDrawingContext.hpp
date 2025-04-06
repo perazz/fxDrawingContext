@@ -120,4 +120,5 @@ void FillPathOnDC(wxDC* dc, const fxGraphicsPath& path, wxPolygonFillMode fillSt
 // Fallback helper to stroke on a DC
 void StrokePathOnDC(wxDC* dc, const fxGraphicsPath& path);
 
+
 #endif // FXDRAWINGCONTEXT_HPP

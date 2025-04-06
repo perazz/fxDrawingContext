@@ -402,50 +402,177 @@ void DrawPathOnDC(wxDC* dc, const fxGraphicsPath& path, wxPolygonFillMode fillMo
     std::vector<wxPoint> currentSubpath;
     currentSubpath.reserve(16);
 
+    // We'll keep track of the last point, to connect lines or arcs
+    wxPoint2DDouble lastPt(0,0);
+    bool haveLastPt = false;
+
     for (auto& seg : segments)
     {
         switch (seg.type)
         {
         case fxPathSegmentType::MoveTo:
-            if (!currentSubpath.empty()) {
-                dc->DrawLines(currentSubpath.size(), currentSubpath.data());
-                currentSubpath.clear();
-            }
-            if (!seg.points.empty()) {
-                auto& p = seg.points[0];
-                currentSubpath.push_back(wxPoint((int)p.m_x, (int)p.m_y));
+            {
+                // If we have an open subpath, fill it:
+                if (!currentSubpath.empty()) {
+                    dc->DrawLines(currentSubpath.size(), currentSubpath.data());
+                    currentSubpath.clear();
+                }
+                if (!seg.points.empty()) {
+                    lastPt = seg.points[0];
+                    haveLastPt = true;
+                    currentSubpath.push_back(wxPoint((int)lastPt.m_x, (int)lastPt.m_y));
+                }
             }
             break;
 
         case fxPathSegmentType::LineTo:
-            if (!seg.points.empty()) {
-                auto& p = seg.points[0];
-                currentSubpath.push_back(wxPoint((int)p.m_x, (int)p.m_y));
+            {
+                if (!seg.points.empty()) {
+                    lastPt = seg.points[0];
+                    haveLastPt = true;
+                    currentSubpath.push_back(wxPoint((int)lastPt.m_x, (int)lastPt.m_y));
+                }
+            }
+            break;
+
+        //-----------------------------------
+        // Quadratic Bezier
+        //-----------------------------------
+        case fxPathSegmentType::QuadCurveTo:
+            {
+                // We have control point (cx,cy) and end point (x,y)
+                if (seg.points.size() >= 2 && haveLastPt) {
+                    double x0 = lastPt.m_x;
+                    double y0 = lastPt.m_y;
+                    double cx = seg.points[0].m_x;
+                    double cy = seg.points[0].m_y;
+                    double x1 = seg.points[1].m_x;
+                    double y1 = seg.points[1].m_y;
+
+                    auto poly = ApproxQuadBezier(x0,y0, cx,cy, x1,y1, 12);
+                    // The first point is lastPt again, so skip it to avoid duplication
+                    for (size_t i=1; i<poly.size(); i++){
+                        currentSubpath.push_back(wxPoint((int)poly[i].m_x, (int)poly[i].m_y));
+                    }
+                    lastPt = wxPoint2DDouble(x1,y1);
+                }
+            }
+            break;
+
+        //-----------------------------------
+        // Cubic Bezier
+        //-----------------------------------
+        case fxPathSegmentType::CurveTo:
+            {
+                if (seg.points.size() >= 3 && haveLastPt) {
+                    double x0 = lastPt.m_x;
+                    double y0 = lastPt.m_y;
+                    double cx1 = seg.points[0].m_x;
+                    double cy1 = seg.points[0].m_y;
+                    double cx2 = seg.points[1].m_x;
+                    double cy2 = seg.points[1].m_y;
+                    double x1  = seg.points[2].m_x;
+                    double y1  = seg.points[2].m_y;
+
+                    auto poly = ApproxCubicBezier(x0,y0, cx1,cy1, cx2,cy2, x1,y1, 12);
+                    for (size_t i=1; i<poly.size(); i++){
+                        currentSubpath.push_back(wxPoint((int)poly[i].m_x, (int)poly[i].m_y));
+                    }
+                    lastPt = wxPoint2DDouble(x1,y1);
+                }
+            }
+            break;
+
+        //-----------------------------------
+        // Arc
+        //-----------------------------------
+        case fxPathSegmentType::Arc:
+            {
+                if (!seg.points.empty()) {
+                    double cx = seg.points[0].m_x;
+                    double cy = seg.points[0].m_y;
+                    double r = seg.radius;
+                    double startA = seg.startAngle;
+                    double endA   = seg.endAngle;
+                    bool cw       = seg.clockwise;
+                    // If we have a 'lastPt' we could do a line from lastPt to arc start, 
+                    // but in wxGraphicsPath AddArc typically 'moves' to start of arc first.
+                    auto arcPts = ApproxArc(cx, cy, r, startA, endA, cw, 12);
+                    // optional: if you want a line from lastPt to arcPts[0], do so
+                    for (size_t i = 0; i < arcPts.size(); i++){
+                        currentSubpath.push_back(wxPoint((int)arcPts[i].m_x, (int)arcPts[i].m_y));
+                    }
+                    lastPt = arcPts.back();
+                    haveLastPt = true;
+                }
+            }
+            break;
+
+        //-----------------------------------
+        // ArcTo
+        //-----------------------------------
+        case fxPathSegmentType::ArcTo:
+            {
+                // ArcTo is a bit more complicated to approximate accurately because
+                // itís tangent from lastPt -> arc -> seg.points[1]. Let's do a naive approach:
+                if (seg.points.size() >= 2 && haveLastPt) {
+                    // We'll interpret (x1,y1) and (x2,y2) with radius r
+                    double x1 = seg.points[0].m_x;
+                    double y1 = seg.points[0].m_y;
+                    double x2 = seg.points[1].m_x;
+                    double y2 = seg.points[1].m_y;
+                    double r  = seg.radius;
+                    // We'll do a rough approach: 
+                    // 1) line from lastPt to (x1,y1)
+                    currentSubpath.push_back(wxPoint((int)x1, (int)y1));
+                    // 2) approximate an arc with center = ??? 
+                    // Actually, ArcTo is more complex. We'll do a small hack:
+                    // just do a line from (x1,y1) to (x2,y2). Real arcTo is tangent arcs. 
+                    // For a real approach, you'd compute the tangent points. 
+                    currentSubpath.push_back(wxPoint((int)x2, (int)y2));
+                    lastPt = wxPoint2DDouble(x2,y2);
+                }
             }
             break;
 
         case fxPathSegmentType::Rectangle:
-        {
-            wxDouble x1 = seg.points[0].m_x;
-            wxDouble y1 = seg.points[0].m_y;
-            wxDouble x2 = seg.points[1].m_x;
-            wxDouble y2 = seg.points[1].m_y;
-            dc->DrawRectangle(wxRect((int)x1, (int)y1, (int)(x2 - x1), (int)(y2 - y1)));
-            break;
-        }
-
-        case fxPathSegmentType::Ellipse:
-            // ...
-            break;
-
-        case fxPathSegmentType::Close:
-            if (!currentSubpath.empty()) {
-                dc->DrawPolygon(currentSubpath.size(), currentSubpath.data(), 0, 0, fillMode);
-                currentSubpath.clear();
+            {
+                wxDouble x1 = seg.points[0].m_x;
+                wxDouble y1 = seg.points[0].m_y;
+                wxDouble x2 = seg.points[1].m_x;
+                wxDouble y2 = seg.points[1].m_y;
+                dc->DrawRectangle(wxRect((int)x1, (int)y1, (int)(x2 - x1), (int)(y2 - y1)));
             }
             break;
 
-        // ... handle arcs, curves, etc. as needed
+        case fxPathSegmentType::Ellipse:
+            // Already handled or partial. If itís bounding box or circle center, see code snippet:
+            {
+                if (seg.points.size() == 1) {
+                    // (center, radius)
+                    double cx = seg.points[0].m_x;
+                    double cy = seg.points[0].m_y;
+                    double r  = seg.radius;
+                    dc->DrawEllipse((int)(cx - r), (int)(cy - r), (int)(2*r), (int)(2*r));
+                }
+                else if (seg.points.size() == 2) {
+                    double x1 = seg.points[0].m_x;
+                    double y1 = seg.points[0].m_y;
+                    double x2 = seg.points[1].m_x;
+                    double y2 = seg.points[1].m_y;
+                    dc->DrawEllipse((int)x1, (int)y1, (int)(x2 - x1), (int)(y2 - y1));
+                }
+            }
+            break;
+
+        case fxPathSegmentType::Close:
+            {
+                if (!currentSubpath.empty()) {
+                    dc->DrawPolygon(currentSubpath.size(), currentSubpath.data(), 0, 0, fillMode);
+                    currentSubpath.clear();
+                }
+            }
+            break;
 
         default:
             break;
@@ -479,112 +606,16 @@ void fxDrawingContext::FillPath(const fxGraphicsPath& fxpath,
     }, m_context);
 }
 
-void FillPathOnDC(wxDC* dc, const fxGraphicsPath& path,
-                  wxPolygonFillMode fillStyle)
+void FillPathOnDC(wxDC* dc, const fxGraphicsPath& path, wxPolygonFillMode fillMode)
 {
     if (!dc) return;
 
-    // Save the old pen and brush so we can restore later if desired
     wxPen oldPen = dc->GetPen();
-    dc->SetPen(*wxTRANSPARENT_PEN); // fill only, no outline
+    dc->SetPen(*wxTRANSPARENT_PEN);  // Fill only: no stroke
 
-    const auto& segments = path.GetSegments();
-    if (segments.empty()) {
-        dc->SetPen(oldPen);
-        return;
-    }
+    DrawPathOnDC(dc, path, fillMode);  // Use correct fill mode
 
-    // We’ll collect polygons in a subpath
-    std::vector<wxPoint> currentSubpath;
-    currentSubpath.reserve(16);
-
-    for (auto& seg : segments)
-    {
-        switch (seg.type)
-        {
-        case fxPathSegmentType::MoveTo:
-            // If there's an ongoing subpath, fill it
-            if (!currentSubpath.empty()) {
-                dc->DrawPolygon(currentSubpath.size(), currentSubpath.data(), 
-                                0, 0, fillStyle);
-                currentSubpath.clear();
-            }
-            // Start new subpath
-            if (!seg.points.empty()) {
-                const auto& p = seg.points[0];
-                currentSubpath.push_back(wxPoint((int)p.m_x, (int)p.m_y));
-            }
-            break;
-
-        case fxPathSegmentType::LineTo:
-            if (!seg.points.empty()) {
-                const auto& p = seg.points[0];
-                currentSubpath.push_back(wxPoint((int)p.m_x, (int)p.m_y));
-            }
-            break;
-
-        case fxPathSegmentType::Rectangle:
-            {
-                // We'll fill it immediately
-                double x1 = seg.points[0].m_x;
-                double y1 = seg.points[0].m_y;
-                double x2 = seg.points[1].m_x;
-                double y2 = seg.points[1].m_y;
-                double w  = x2 - x1;
-                double h  = y2 - y1;
-                dc->DrawRectangle(wxRect((int)x1, (int)y1, (int)w, (int)h));
-            }
-            break;
-
-        case fxPathSegmentType::Ellipse:
-            {
-                // If we stored it as circle center+radius => seg.points.size() == 1
-                // If bounding box => seg.points.size() == 2
-                if (seg.points.size() == 1) {
-                    // (center, radius)
-                    double cx = seg.points[0].m_x;
-                    double cy = seg.points[0].m_y;
-                    double r  = seg.radius;
-                    dc->DrawEllipse((int)(cx - r), (int)(cy - r), 
-                                    (int)(2*r), (int)(2*r));
-                }
-                else if (seg.points.size() == 2) {
-                    // bounding box
-                    double x1 = seg.points[0].m_x;
-                    double y1 = seg.points[0].m_y;
-                    double x2 = seg.points[1].m_x;
-                    double y2 = seg.points[1].m_y;
-                    dc->DrawEllipse((int)x1, (int)y1, 
-                                    (int)(x2 - x1), (int)(y2 - y1));
-                }
-            }
-            break;
-
-        case fxPathSegmentType::Close:
-            // Fill subpath
-            if (!currentSubpath.empty()) {
-                dc->DrawPolygon(currentSubpath.size(), currentSubpath.data(), 
-                                0, 0, fillStyle);
-                currentSubpath.clear();
-            }
-            break;
-
-        // For arcs/curves, you'd do an approximation or skip. 
-        // We'll skip them for brevity here.
-        default:
-            break;
-        }
-    } // end for segments
-
-    // If there's an open subpath that wasn't closed, fill it now:
-    if (!currentSubpath.empty()) {
-        dc->DrawPolygon(currentSubpath.size(), currentSubpath.data(), 
-                        0, 0, fillStyle);
-        currentSubpath.clear();
-    }
-
-    // Restore original pen
-    dc->SetPen(oldPen);
+    dc->SetPen(oldPen);  // Restore original
 }
 
 void fxDrawingContext::StrokePath(const fxGraphicsPath& fxpath)
@@ -608,108 +639,13 @@ void StrokePathOnDC(wxDC* dc, const fxGraphicsPath& path)
 {
     if (!dc) return;
 
-    // Save old brush so we can restore it later
     wxBrush oldBrush = dc->GetBrush();
-    // Use a transparent brush to emulate -stroke only-
-    dc->SetBrush(*wxTRANSPARENT_BRUSH);
+    dc->SetBrush(*wxTRANSPARENT_BRUSH);  // Stroke only: no fill
 
-    const auto& segments = path.GetSegments();
-    if (segments.empty()) {
-        dc->SetBrush(oldBrush);
-        return;
-    }
+    DrawPathOnDC(dc, path, wxODDEVEN_RULE);  // Polygon mode doesn't matter for stroke
 
-    // We’ll accumulate subpath lines in currentSubpath
-    std::vector<wxPoint> currentSubpath;
-    currentSubpath.reserve(16);
-
-    for (auto& seg : segments)
-    {
-        switch (seg.type)
-        {
-        case fxPathSegmentType::MoveTo:
-            // If we have an existing subpath, draw it
-            if (currentSubpath.size() > 1) {
-                // Connect them as lines
-                dc->DrawLines(currentSubpath.size(), currentSubpath.data());
-            }
-            currentSubpath.clear();
-            // Start a new subpath
-            if (!seg.points.empty()) {
-                const auto& p = seg.points[0];
-                currentSubpath.push_back(wxPoint((int)p.m_x, (int)p.m_y));
-            }
-            break;
-
-        case fxPathSegmentType::LineTo:
-            if (!seg.points.empty()) {
-                const auto& p = seg.points[0];
-                currentSubpath.push_back(wxPoint((int)p.m_x, (int)p.m_y));
-            }
-            break;
-
-        case fxPathSegmentType::Rectangle:
-            {
-                // Outline a rectangle
-                double x1 = seg.points[0].m_x;
-                double y1 = seg.points[0].m_y;
-                double x2 = seg.points[1].m_x;
-                double y2 = seg.points[1].m_y;
-                double w  = x2 - x1;
-                double h  = y2 - y1;
-                dc->DrawRectangle(wxRect((int)x1, (int)y1, (int)w, (int)h));
-            }
-            break;
-
-        case fxPathSegmentType::Ellipse:
-            {
-                // Outline a circle or ellipse
-                if (seg.points.size() == 1) {
-                    // circle: (center, radius)
-                    double cx = seg.points[0].m_x;
-                    double cy = seg.points[0].m_y;
-                    double r  = seg.radius;
-                    dc->DrawEllipse((int)(cx - r), (int)(cy - r),
-                                    (int)(2 * r),   (int)(2 * r));
-                }
-                else if (seg.points.size() == 2) {
-                    // bounding box
-                    double x1 = seg.points[0].m_x;
-                    double y1 = seg.points[0].m_y;
-                    double x2 = seg.points[1].m_x;
-                    double y2 = seg.points[1].m_y;
-                    dc->DrawEllipse((int)x1,       (int)y1,
-                                    (int)(x2 - x1), (int)(y2 - y1));
-                }
-            }
-            break;
-
-        case fxPathSegmentType::Close:
-            // If we have a subpath, close it by connecting last to first
-            if (currentSubpath.size() > 1) {
-                // Draw the lines
-                dc->DrawLines(currentSubpath.size(), currentSubpath.data());
-                // Also connect end to start
-                dc->DrawLine(currentSubpath.back(), currentSubpath.front());
-            }
-            currentSubpath.clear();
-            break;
-
-        // For arcs/curves, you'd approximate them if you want real stroke
-        default:
-            break;
-        }
-    }
-
-    // If there's an unclosed subpath, stroke it as lines
-    if (currentSubpath.size() > 1) {
-        dc->DrawLines(currentSubpath.size(), currentSubpath.data());
-    }
-
-    // Restore original brush
-    dc->SetBrush(oldBrush);
+    dc->SetBrush(oldBrush);  // Restore original
 }
-
 
 //--------------------------------------
 // Flush (if supported)
@@ -848,3 +784,4 @@ wxAntialiasMode fxDrawingContext::GetAntialiasMode() const
 
     return mode;
 }
+
