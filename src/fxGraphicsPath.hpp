@@ -31,6 +31,17 @@ struct fxPathSegment {
 class fxGraphicsPath
 {
 public:
+    
+    // ------------------------------------------
+    // 1) Default constructor (empty path)
+    // ------------------------------------------
+    fxGraphicsPath()
+        : m_gc(nullptr)  // no GC => tracking only
+    {
+        // m_path remains empty
+        // m_segments is empty
+    }
+    
     // If gc is null, we won't build an internal wxGraphicsPath. We'll just track geometry in m_segments
     fxGraphicsPath(wxGraphicsContext* gc)
         : m_gc(gc)
@@ -246,7 +257,7 @@ public:
         if (m_gc) {
             return m_path.GetCurrentPoint();
         }
-        // If no GC, approximate by last segment’s last point
+        // If no GC, approximate by last segmentÕs last point
         if (!m_segments.empty() && !m_segments.back().points.empty()) {
             return m_segments.back().points.back();
         }
