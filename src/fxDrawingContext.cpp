@@ -544,6 +544,45 @@ void DrawPathOnDC(wxDC* dc, const fxGraphicsPath& path, wxPolygonFillMode fillMo
                 dc->DrawRectangle(wxRect((int)x1, (int)y1, (int)(x2 - x1), (int)(y2 - y1)));
             }
             break;
+            
+            case fxPathSegmentType::RoundedRectangle:
+            {
+                if (seg.points.size() >= 2) {
+                    double x1 = seg.points[0].m_x;
+                    double y1 = seg.points[0].m_y;
+                    double x2 = seg.points[1].m_x;
+                    double y2 = seg.points[1].m_y;
+                    double w  = x2 - x1;
+                    double h  = y2 - y1;
+                    double radius = seg.radius;
+
+                    const int steps = 6; // smoothness of each corner
+
+                    // Approximate the four rounded corners
+                    auto arcTL = ApproxArc(x1 + radius, y1 + radius, radius, M_PI, 3 * M_PI / 2, false, steps);
+                    auto arcTR = ApproxArc(x2 - radius, y1 + radius, radius, 3 * M_PI / 2, 0, false, steps);
+                    auto arcBR = ApproxArc(x2 - radius, y2 - radius, radius, 0, M_PI / 2, false, steps);
+                    auto arcBL = ApproxArc(x1 + radius, y2 - radius, radius, M_PI / 2, M_PI, false, steps);
+
+                    std::vector<wxPoint> outline;
+                    outline.reserve(arcTL.size() + arcTR.size() + arcBR.size() + arcBL.size());
+
+                    // Convert and insert arc points
+                    for (const auto& pt : arcTL) outline.emplace_back(wxPoint(int(pt.m_x), int(pt.m_y)));
+                    for (const auto& pt : arcTR) outline.emplace_back(wxPoint(int(pt.m_x), int(pt.m_y)));
+                    for (const auto& pt : arcBR) outline.emplace_back(wxPoint(int(pt.m_x), int(pt.m_y)));
+                    for (const auto& pt : arcBL) outline.emplace_back(wxPoint(int(pt.m_x), int(pt.m_y)));
+
+                    // Draw polygon
+                    dc->DrawPolygon(outline.size(), outline.data(), 0, 0, fillMode);
+
+                    if (!outline.empty()) {
+                        lastPt = wxPoint2DDouble(outline.back().x, outline.back().y);
+                        haveLastPt = true;
+                    }
+                }
+            }
+            break;
 
         case fxPathSegmentType::Ellipse:
             // Already handled or partial. If it’s bounding box or circle center, see code snippet:
@@ -573,6 +612,8 @@ void DrawPathOnDC(wxDC* dc, const fxGraphicsPath& path, wxPolygonFillMode fillMo
                 }
             }
             break;
+            
+            
 
         default:
             break;
