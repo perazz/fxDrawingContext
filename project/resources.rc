@@ -1,0 +1,38 @@
+/*  ***********************************************************************************************
+!   **                                                                                           **
+!   **                  |\   -  -.   ./                                                          **
+!   **                  | \./ \/ | ./ /     __________  ___________ __________                   **
+!   **                __|         /  /     / ____/ __ \/ ____/ ___// ____/ __ \                  **
+!   **                \    .        /.-/  / /_  / /_/ / __/  \__ \/ /   / / / /                  **
+!   **                 \   |\.|\/|    /  / __/ / _, _/ /___ ___/ / /___/ /_/ /                   **
+!   **                  \__\     /___/  /_/   /_/ |_/_____//____/\____/\____/                    **
+!   **                                                                                           **
+!   **                                     FRESCO-SpeedCHEM                                      **
+!   **            A code for internal combustion engine flows with chemical kinetics             **
+!   **                                                                                           **
+!   ***********************************************************************************************
+!   **                                                                                           **
+!   **    Windows application resources file                                                     **
+!   **                                                                                           **
+!   **    Author: (C) Federico Perini <federico.perini@gmail.com>                                **
+!   **    Date created : 04/29/2021                                                              **
+!   **                                                                                           **
+!   **********************************************************************************************/
+
+// set this to 1 if you don't want to use manifest resource (manifest resource
+// is needed to enable visual styles on Windows XP - see docs/msw/winxp.txt
+// for more information)
+#define wxUSE_NO_MANIFEST 0
+#define wxUSE_DPI_AWARE_MANIFEST 2
+#include <wx/msw/wx.rc>
+
+///frescoAppIcon ICON "icons/FRESCOicon.ico"
+
+// the icon used by the Explorer (i.e. the programs icon) is the first icon in the executable and
+// the icons are sorted both by their order and alphabetically (!), so put this icon first and give
+// it a name starting with "a"
+///aaafrescoAppIcon ICON "icons/FRESCOicon.ico"
+
+
+// this is not always needed but doesn't hurt (except making the executable
+// very slightly larger): this file contains the standard icons, cursors, ...

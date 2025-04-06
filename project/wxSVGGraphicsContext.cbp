@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="wxSVGGraphicsContext" />
+		<Option pch_mode="2" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="Debug_Mac">
+				<Option platforms="Mac;" />
+				<Option output="bin/Debug/wxSVGGraphicsContext" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Debug/" />
+				<Option type="0" />
+				<Option compiler="clang" />
+				<Option projectLinkerOptionsRelation="2" />
+				<Compiler>
+					<Add option="-fsanitize=address" />
+					<Add option="-g" />
+					<Add option="-std=c++17" />
+					<Add directory="src/core" />
+					<Add directory="src/charts/core" />
+					<Add directory="./" />
+					<Add directory="src/samples" />
+					<Add directory="src/art" />
+					<Add directory="src/axes" />
+					<Add directory="../../fitpack/include" />
+					<Add directory="src" />
+				</Compiler>
+				<Linker>
+					<Add option="-fsanitize=address" />
+					<Add library="../../fitpack/project/fitpack.dylib" />
+				</Linker>
+			</Target>
+			<Target title="Debug_Windows">
+				<Option platforms="Windows;" />
+				<Option output="bin/Debug/wxSVGGraphicsContext" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Debug/" />
+				<Option type="0" />
+				<Option compiler="gcc" />
+				<Option projectLinkerOptionsRelation="2" />
+				<Compiler>
+					<Add option="-pedantic" />
+					<Add option="-Wall" />
+					<Add option="-std=c++11" />
+					<Add option="-m64" />
+					<Add option="-g" />
+					<Add directory="src/core" />
+					<Add directory="src/charts/core" />
+					<Add directory="./" />
+					<Add directory="src/samples" />
+					<Add directory="src/art" />
+					<Add directory="src/axes" />
+					<Add directory="../../fitpack/include" />
+					<Add directory="src" />
+				</Compiler>
+				<Linker>
+					<Add option="-m64" />
+					<Add library="../../fitpack/project/libfitpack.a" />
+				</Linker>
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="`wx-config --cflags`" />
+			<Add option="-DHAVE_FITPACK" />
+			<Add directory="../src" />
+			<Add directory="../fitpack/include" />
+		</Compiler>
+		<ResourceCompiler>
+			<Add option="`wx-config --rcflags`" />
+		</ResourceCompiler>
+		<Linker>
+			<Add option="`wx-config --libs`" />
+			<Add directory="../src" />
+		</Linker>
+		<Unit filename="../src/fxDrawingContext.cpp" />
+		<Unit filename="../src/fxDrawingContext.hpp" />
+		<Unit filename="../src/fxGraphicsPath.cpp" />
+		<Unit filename="../src/fxGraphicsPath.hpp" />
+		<Unit filename="../src/theApp.cpp" />
+		<Unit filename="../src/theApp.hpp" />
+		<Extensions>
+			<envvars set="fitpack" />
+			<wxsmith version="1">
+				<gui name="wxWidgets" src="wxPlotLibApp.cpp" main="-- None --" init_handlers="necessary" language="CPP" />
+			</wxsmith>
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>
