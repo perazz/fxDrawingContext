@@ -442,19 +442,12 @@ void DrawPathOnDC(wxDC* dc, const fxGraphicsPath& path, wxPolygonFillMode fillMo
             {
                 // We have control point (cx,cy) and end point (x,y)
                 if (seg.points.size() >= 2 && haveLastPt) {
-                    double x0 = lastPt.m_x;
-                    double y0 = lastPt.m_y;
-                    double cx = seg.points[0].m_x;
-                    double cy = seg.points[0].m_y;
-                    double x1 = seg.points[1].m_x;
-                    double y1 = seg.points[1].m_y;
-
-                    auto poly = ApproxQuadBezier(x0,y0, cx,cy, x1,y1, 12);
+                    auto poly = ApproxQuadBezier(lastPt, seg.points[0], seg.points[1], 12);
                     // The first point is lastPt again, so skip it to avoid duplication
                     for (size_t i=1; i<poly.size(); i++){
                         currentSubpath.push_back(wxPoint((int)poly[i].m_x, (int)poly[i].m_y));
                     }
-                    lastPt = wxPoint2DDouble(x1,y1);
+                    lastPt = seg.points[1];
                 }
             }
             break;
@@ -465,20 +458,11 @@ void DrawPathOnDC(wxDC* dc, const fxGraphicsPath& path, wxPolygonFillMode fillMo
         case fxPathSegmentType::CurveTo:
             {
                 if (seg.points.size() >= 3 && haveLastPt) {
-                    double x0 = lastPt.m_x;
-                    double y0 = lastPt.m_y;
-                    double cx1 = seg.points[0].m_x;
-                    double cy1 = seg.points[0].m_y;
-                    double cx2 = seg.points[1].m_x;
-                    double cy2 = seg.points[1].m_y;
-                    double x1  = seg.points[2].m_x;
-                    double y1  = seg.points[2].m_y;
-
-                    auto poly = ApproxCubicBezier(x0,y0, cx1,cy1, cx2,cy2, x1,y1, 12);
+                    auto poly = ApproxCubicBezier(lastPt, seg.points[0], seg.points[1], seg.points[2], 12);
                     for (size_t i=1; i<poly.size(); i++){
                         currentSubpath.push_back(wxPoint((int)poly[i].m_x, (int)poly[i].m_y));
                     }
-                    lastPt = wxPoint2DDouble(x1,y1);
+                    lastPt = seg.points[2];
                 }
             }
             break;
@@ -489,15 +473,13 @@ void DrawPathOnDC(wxDC* dc, const fxGraphicsPath& path, wxPolygonFillMode fillMo
         case fxPathSegmentType::Arc:
             {
                 if (!seg.points.empty()) {
-                    double cx = seg.points[0].m_x;
-                    double cy = seg.points[0].m_y;
                     double r = seg.radius;
                     double startA = seg.startAngle;
                     double endA   = seg.endAngle;
                     bool cw       = seg.clockwise;
                     // If we have a 'lastPt' we could do a line from lastPt to arc start, 
                     // but in wxGraphicsPath AddArc typically 'moves' to start of arc first.
-                    auto arcPts = ApproxArc(cx, cy, r, startA, endA, cw, 12);
+                    auto arcPts = ApproxArc(seg.points[0], r, startA, endA, cw, 12);
                     // optional: if you want a line from lastPt to arcPts[0], do so
                     for (size_t i = 0; i < arcPts.size(); i++){
                         currentSubpath.push_back(wxPoint((int)arcPts[i].m_x, (int)arcPts[i].m_y));
@@ -545,44 +527,43 @@ void DrawPathOnDC(wxDC* dc, const fxGraphicsPath& path, wxPolygonFillMode fillMo
             }
             break;
             
-            case fxPathSegmentType::RoundedRectangle:
-            {
-                if (seg.points.size() >= 2) {
-                    double x1 = seg.points[0].m_x;
-                    double y1 = seg.points[0].m_y;
-                    double x2 = seg.points[1].m_x;
-                    double y2 = seg.points[1].m_y;
-                    double w  = x2 - x1;
-                    double h  = y2 - y1;
-                    double radius = seg.radius;
+        case fxPathSegmentType::RoundedRectangle:
+        {
+            if (seg.points.size() >= 2) {
+                const double r = seg.radius;
+                const int steps = 6;
 
-                    const int steps = 6; // smoothness of each corner
+                double x1 = seg.points[0].m_x;
+                double y1 = seg.points[0].m_y;
+                double x2 = seg.points[1].m_x;
+                double y2 = seg.points[1].m_y;
 
-                    // Approximate the four rounded corners
-                    auto arcTL = ApproxArc(x1 + radius, y1 + radius, radius, M_PI, 3 * M_PI / 2, false, steps);
-                    auto arcTR = ApproxArc(x2 - radius, y1 + radius, radius, 3 * M_PI / 2, 0, false, steps);
-                    auto arcBR = ApproxArc(x2 - radius, y2 - radius, radius, 0, M_PI / 2, false, steps);
-                    auto arcBL = ApproxArc(x1 + radius, y2 - radius, radius, M_PI / 2, M_PI, false, steps);
+                wxPoint2DDouble TL(x1 + r, y1 + r);
+                wxPoint2DDouble TR(x2 - r, y1 + r);
+                wxPoint2DDouble BR(x2 - r, y2 - r);
+                wxPoint2DDouble BL(x1 + r, y2 - r);
 
-                    std::vector<wxPoint> outline;
-                    outline.reserve(arcTL.size() + arcTR.size() + arcBR.size() + arcBL.size());
+                auto arcTL = ApproxArc(TL, r, M_PI,     3 * M_PI / 2, false, steps);
+                auto arcTR = ApproxArc(TR, r, 3 * M_PI / 2, 2 * M_PI, false, steps);
+                auto arcBR = ApproxArc(BR, r, 0,        M_PI / 2,     false, steps);
+                auto arcBL = ApproxArc(BL, r, M_PI / 2, M_PI,         false, steps);
 
-                    // Convert and insert arc points
-                    for (const auto& pt : arcTL) outline.emplace_back(wxPoint(int(pt.m_x), int(pt.m_y)));
-                    for (const auto& pt : arcTR) outline.emplace_back(wxPoint(int(pt.m_x), int(pt.m_y)));
-                    for (const auto& pt : arcBR) outline.emplace_back(wxPoint(int(pt.m_x), int(pt.m_y)));
-                    for (const auto& pt : arcBL) outline.emplace_back(wxPoint(int(pt.m_x), int(pt.m_y)));
+                std::vector<wxPoint> outline;
+                for (const auto& pt : arcTL) outline.emplace_back(wxPoint(int(pt.m_x), int(pt.m_y)));
+                for (const auto& pt : arcTR) outline.emplace_back(wxPoint(int(pt.m_x), int(pt.m_y)));
+                for (const auto& pt : arcBR) outline.emplace_back(wxPoint(int(pt.m_x), int(pt.m_y)));
+                for (const auto& pt : arcBL) outline.emplace_back(wxPoint(int(pt.m_x), int(pt.m_y)));
 
-                    // Draw polygon
-                    dc->DrawPolygon(outline.size(), outline.data(), 0, 0, fillMode);
+                dc->DrawPolygon(outline.size(), outline.data(), 0, 0, fillMode);
 
-                    if (!outline.empty()) {
-                        lastPt = wxPoint2DDouble(outline.back().x, outline.back().y);
-                        haveLastPt = true;
-                    }
+                if (!outline.empty()) {
+                    lastPt = wxPoint2DDouble(outline.back().x, outline.back().y);
+                    haveLastPt = true;
                 }
             }
-            break;
+        }
+        break;
+
 
         case fxPathSegmentType::Ellipse:
             // Already handled or partial. If it’s bounding box or circle center, see code snippet:

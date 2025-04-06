@@ -345,9 +345,8 @@ private:
 };
 
 // Drawing helper functions
-std::vector<wxPoint2DDouble> ApproxQuadBezier(double x0, double y0, double cx, double cy, double x1, double y1, int steps = 12);
-std::vector<wxPoint2DDouble> ApproxCubicBezier(double x0, double y0, double cx1, double cy1, double cx2, double cy2, double x1, double y1, int steps = 12);
-std::vector<wxPoint2DDouble> ApproxArc(double cx, double cy, double r, double startAngle, double endAngle, bool clockwise, int steps = 12);
-
+std::vector<wxPoint2DDouble> ApproxQuadBezier(wxPoint2DDouble p0, wxPoint2DDouble c, wxPoint2DDouble p1, int steps = 12);
+std::vector<wxPoint2DDouble> ApproxCubicBezier(wxPoint2DDouble p0, wxPoint2DDouble c1, wxPoint2DDouble c2, wxPoint2DDouble p1, int steps = 12);
+std::vector<wxPoint2DDouble> ApproxArc(wxPoint2DDouble c, double r, double startAngle, double endAngle, bool clockwise, int steps = 12);
 
 #endif // FXGRAPHICSPATH_HPP
